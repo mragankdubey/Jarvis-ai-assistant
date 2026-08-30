@@ -27,14 +27,9 @@ def processCommand(C):
         webbrowser.open("https://github.com/")
 
     elif C.lower().startswith("play"):
-        song = C.lower().split(" ")[1]
+        song = C.lower().replace("play", "").strip()
 
-        if song in musicLibrary.music:
-            song_link = musicLibrary.music.get(song)
-            webbrowser.open(song_link)
-        else:
-            speak(f"I don't have {song} in my music library.")
-
+        webbrowser.open(f"https://www.youtube.com/results?search_query={song}")
 
 if __name__ == "__main__":
     speak("Initialising Jarvis...")
