@@ -1,15 +1,25 @@
+import os
 import speech_recognition as sr
 import webbrowser
 import pyttsx3
-import musicLibrary
+import requests
+from dotenv import load_dotenv
 
-engine = pyttsx3.init()
+load_dotenv()
+newsapi_key = os.getenv("newsapi_key")
+
 recognizer = sr.Recognizer()
+
 
 def speak(text):
     print("JARVIS SPEAKING:", text)
+    engine = pyttsx3.init()
     engine.say(text)
     engine.runAndWait()
+    engine.stop()
+
+
+
 
 def processCommand(C):
     print(C)
@@ -22,16 +32,34 @@ def processCommand(C):
 
     elif "open whatsapp" in C.lower():
         webbrowser.open("https://web.whatsapp.com/")
-    
+
     elif "open github" in C.lower():
         webbrowser.open("https://github.com/")
 
     elif C.lower().startswith("play"):
         song = C.lower().replace("play", "").strip()
-
         webbrowser.open(f"https://www.youtube.com/results?search_query={song}")
 
+    elif "news" in C.lower():
+        r = requests.get(
+            f"https://newsapi.org/v2/top-headlines?country=us&category=business&apiKey={newsapi_key}"
+        )
+
+        if r.status_code == 200:
+            data = r.json()
+            articles = data["articles"]
+
+            if articles:
+                speak("Here are the top news headlines:")
+
+                for article in articles[:5]:
+                    speak(article["title"])
+            else:
+                speak("No news articles found.")
+
+
 if __name__ == "__main__":
+
     speak("Initialising Jarvis...")
 
     with sr.Microphone() as source:
@@ -40,7 +68,6 @@ if __name__ == "__main__":
 
     while True:
 
-
         try:
             with sr.Microphone() as source:
                 print("Listening...")
@@ -48,27 +75,25 @@ if __name__ == "__main__":
 
                 print("Recognizing...")
 
-
-            #wake word = Jarvis
+            # wake word = Jarvis
             word = recognizer.recognize_google(audio)
-            print("Heard:", word)
-            
-            if (word.lower() == "jarvis"):
-                speak("Yes")
-                
-                #listen for command 
+            print("Heard:", repr(word))
 
+            if "jarvis" in word.casefold():
+                print("Wake word detected.")
+                speak("Yes")
+
+                # listen for command
                 with sr.Microphone() as source:
                     print("Jarvis Active...")
                     audio = recognizer.listen(source)
+
                 command = recognizer.recognize_google(audio)
 
                 processCommand(command)
 
-           
-
-
         except sr.UnknownValueError:
             speak("Sorry, I could not understand the audio.")
+
         except sr.RequestError as e:
             print(f"Error: {e}")
