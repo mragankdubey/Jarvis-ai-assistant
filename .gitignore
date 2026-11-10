@@ -1,4 +1,32 @@
-# Created by venv; see https://docs.python.org/3/library/venv.html
-
-.venv
+# Environment variables
 .env
+.env.local
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Python cache & bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# IDEs & Editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Logs & Databases
+*.log
+*.sqlite3
+*.db
+
+# Build & Distribution artifacts
+build/
+dist/
+*.spec
+*.egg-info/
