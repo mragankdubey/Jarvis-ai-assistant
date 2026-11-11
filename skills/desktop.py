@@ -68,7 +68,11 @@ class DesktopSkill(BaseSkill):
             notes_dir: Custom directory for saved notes (defaults to ~/JARVIS_Notes).
         """
         self._runner = command_runner or self._default_run
-        self.notes_dir = notes_dir or (Path.home() / "JARVIS_Notes")
+        if notes_dir is not None:
+            self.notes_dir = Path(notes_dir)
+        else:
+            from core.paths import get_notes_dir
+            self.notes_dir = get_notes_dir()
 
     @property
     def name(self) -> str:

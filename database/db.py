@@ -11,18 +11,23 @@ from pathlib import Path
 import sqlite3
 import threading
 from typing import Iterator, Optional
+from core.paths import backup_database, get_db_path, migrate_legacy_database
 
 logger = logging.getLogger(__name__)
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_DB_PATH = PROJECT_ROOT / "database" / "jarvis.db"
 
 
 class DatabaseManager:
     """Thread-safe SQLite database wrapper and schema manager."""
 
     def __init__(self, db_path: Optional[Path] = None):
-        self.db_path = Path(db_path) if db_path else DEFAULT_DB_PATH
+        if db_path is not None:
+            self.db_path = Path(db_path)
+        else:
+            migrate_legacy_database()
+            self.db_path = get_db_path()
+            if self.db_path.exists():
+                backup_database(self.db_path)
+
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
         self._init_schema()
@@ -109,6 +114,8 @@ def get_db(db_path: Optional[Path] = None) -> DatabaseManager:
     """Get or create singleton DatabaseManager."""
     global _db_instance
     with _db_lock:
-        if _db_instance is None or db_path is not None:
+        if db_path is not None:
             _db_instance = DatabaseManager(db_path=db_path)
+        elif _db_instance is None or _db_instance.db_path != get_db_path():
+            _db_instance = DatabaseManager(db_path=None)
         return _db_instance

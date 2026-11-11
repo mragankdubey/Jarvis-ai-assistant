@@ -29,4 +29,5 @@ __pycache__/
 build/
 dist/
 *.spec
+!JARVIS.spec
 *.egg-info/

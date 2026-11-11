@@ -83,6 +83,7 @@ def check_wake_word_engine(model_name: str = "hey_jarvis") -> Tuple[bool, str]:
     """Verify openWakeWord ONNX runtime and model presence quickly without consuming mic."""
     import importlib.util
     from pathlib import Path
+    from core.paths import get_resource_root
 
     spec_oww = importlib.util.find_spec("openwakeword")
     spec_ort = importlib.util.find_spec("onnxruntime")
@@ -90,12 +91,14 @@ def check_wake_word_engine(model_name: str = "hey_jarvis") -> Tuple[bool, str]:
         return False, "openWakeWord / onnxruntime missing"
 
     try:
+        candidates = []
         if spec_oww.origin:
-            models_dir = Path(spec_oww.origin).parent / "resources" / "models"
-            if models_dir.exists():
-                matched = list(models_dir.glob(f"*{model_name}*"))
-                if matched:
-                    return True, f"ONNX Ready ('{model_name}')"
+            candidates.append(Path(spec_oww.origin).parent / "resources" / "models")
+        candidates.append(get_resource_root() / "openwakeword" / "resources" / "models")
+
+        for models_dir in candidates:
+            if models_dir.exists() and list(models_dir.glob(f"*{model_name}*")):
+                return True, f"ONNX Ready ('{model_name}')"
         return True, f"Engine Ready ('{model_name}')"
     except Exception as e:
         return False, f"Unavailable ({e})"

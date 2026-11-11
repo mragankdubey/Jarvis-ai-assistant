@@ -626,10 +626,10 @@ class MainWindow(QMainWindow):
         if note_id is None:
             new_id = self.repo.create_note(title, content)
             self.notes_screen._current_note_id = new_id
-            # Also mirror to ~/JARVIS_Notes
+            # Also mirror to persistent %LOCALAPPDATA%\JARVIS\notes
             try:
-                notes_dir = Path.home() / "JARVIS_Notes"
-                notes_dir.mkdir(parents=True, exist_ok=True)
+                from core.paths import get_notes_dir
+                notes_dir = get_notes_dir()
                 safe_title = "".join(c if c.isalnum() or c in "-_ " else "_" for c in title)[:35]
                 (notes_dir / f"{safe_title}_{new_id}.txt").write_text(f"{title}\n\n{content}\n", encoding="utf-8")
             except Exception:

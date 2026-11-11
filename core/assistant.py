@@ -173,6 +173,8 @@ class Assistant:
         self.wake_detector.threshold = self.config.wake_word_threshold
         self.tts.rate = self.config.voice_rate
         self.tts.volume = self.config.voice_volume
+        self.ai.groq._explicit_key = self.config.groq_api_key
+        self.ai.gemini._explicit_key = self.config.gemini_api_key
 
         if self.config.wake_word_enabled and self._running:
             if self.probe_audio() and not self.wake_detector.is_running():

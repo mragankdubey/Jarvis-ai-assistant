@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from core.config import Config
+from core.paths import get_user_data_dir
 from interface.components import HudFrame, HudToggleSwitch
 from interface.theme import HudPalette
 
@@ -158,6 +159,56 @@ class SettingsScreen(QWidget):
         ui_l.addStretch(1)
         grid_root.addWidget(ui_frame, 1, 1)
 
+        # === CATEGORY 5: PERSISTENCE & API CREDENTIALS ===
+        cred_frame = HudFrame()
+        cred_l = QVBoxLayout(cred_frame)
+        cred_l.setContentsMargins(16, 14, 16, 14)
+        cred_l.setSpacing(10)
+
+        cred_hdr_row = QHBoxLayout()
+        cred_hdr = QLabel("PERSISTENT STORAGE & API CREDENTIALS (.ENV)")
+        cred_hdr.setObjectName("sectionHeader")
+        cred_hdr_row.addWidget(cred_hdr)
+        cred_hdr_row.addStretch(1)
+
+        open_dir_btn = QPushButton("OPEN DATA FOLDER")
+        open_dir_btn.setFixedHeight(26)
+        open_dir_btn.clicked.connect(self._open_data_dir)
+        cred_hdr_row.addWidget(open_dir_btn)
+        cred_l.addLayout(cred_hdr_row)
+
+        cred_grid = QGridLayout()
+        cred_grid.setSpacing(8)
+
+        cred_grid.addWidget(self._lbl("DATA LOCATION"), 0, 0)
+        self.data_dir_lbl = QLabel(str(get_user_data_dir()))
+        self.data_dir_lbl.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.data_dir_lbl.setStyleSheet(
+            f"font-family: 'Consolas', monospace; font-size: 10px; color: {HudPalette.TEXT_SECONDARY};"
+        )
+        cred_grid.addWidget(self.data_dir_lbl, 0, 1, 1, 3)
+
+        cred_grid.addWidget(self._lbl("GROQ API KEY"), 1, 0)
+        self.groq_key_edit = QLineEdit()
+        self.groq_key_edit.setEchoMode(QLineEdit.Password)
+        self.groq_key_edit.setPlaceholderText("Leave blank to keep existing")
+        cred_grid.addWidget(self.groq_key_edit, 1, 1)
+
+        cred_grid.addWidget(self._lbl("GEMINI API KEY"), 1, 2)
+        self.gemini_key_edit = QLineEdit()
+        self.gemini_key_edit.setEchoMode(QLineEdit.Password)
+        self.gemini_key_edit.setPlaceholderText("Leave blank to keep existing")
+        cred_grid.addWidget(self.gemini_key_edit, 1, 3)
+
+        cred_grid.addWidget(self._lbl("NEWS API KEY"), 2, 0)
+        self.news_key_edit = QLineEdit()
+        self.news_key_edit.setEchoMode(QLineEdit.Password)
+        self.news_key_edit.setPlaceholderText("Leave blank to keep existing")
+        cred_grid.addWidget(self.news_key_edit, 2, 1, 1, 3)
+
+        cred_l.addLayout(cred_grid)
+        grid_root.addWidget(cred_frame, 2, 0, 1, 2)
+
         scroll.setWidget(body)
         root.addWidget(scroll, stretch=1)
 
@@ -219,6 +270,13 @@ class SettingsScreen(QWidget):
         self.tray_toggle.setChecked(cfg.minimize_to_tray)
         self.accent_slider.setValue(cfg.accent_intensity)
 
+    def _open_data_dir(self) -> None:
+        import os
+        try:
+            os.startfile(str(get_user_data_dir()))
+        except Exception:
+            pass
+
     def _on_save(self) -> None:
         self.config.user_name = self.user_name_edit.text().strip() or "Mragank"
         self.config.ai_provider = self.provider_combo.currentText()
@@ -231,5 +289,20 @@ class SettingsScreen(QWidget):
         self.config.startup_animation = self.startup_toggle.isChecked()
         self.config.minimize_to_tray = self.tray_toggle.isChecked()
         self.config.accent_intensity = self.accent_slider.value()
+
+        # Persist API keys safely to %LOCALAPPDATA%\JARVIS\.env only if newly typed
+        g_key = self.groq_key_edit.text().strip()
+        gem_key = self.gemini_key_edit.text().strip()
+        n_key = self.news_key_edit.text().strip()
+        if g_key or gem_key or n_key:
+            self.config.save_api_keys_to_user_env(
+                groq_key=g_key or None,
+                gemini_key=gem_key or None,
+                news_key=n_key or None,
+            )
+            self.groq_key_edit.clear()
+            self.gemini_key_edit.clear()
+            self.news_key_edit.clear()
+            self.load_from_config(self.config)
 
         self.settings_saved.emit()

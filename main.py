@@ -1,21 +1,34 @@
 """
 J.A.R.V.I.S. (Just A Rather Very Intelligent System)
-Main Application Entry Point - Phase 4 (Stark Industries Command Centre HUD)
+Main Application Entry Point - Phase 5 (Distributable Windows Application)
 
 Launches the futuristic Iron Man-inspired PySide6 desktop application with
-cinematic startup diagnostics, multi-screen navigation, persistent SQLite storage,
-local offline wake-word activation, and dual-provider AI intelligence.
+persistent %LOCALAPPDATA%\\JARVIS storage, rotating secret-safe logging,
+cinematic startup diagnostics, multi-screen navigation, and voice intelligence.
 """
 
+import logging
+import os
 import sys
+
+from core.logging_config import setup_logging
+
+# Initialize secret-masked logging & guard None stdio in --windowed builds
+logger = setup_logging()
+
 from core.assistant import Assistant
 from core.config import get_config
+from core.paths import is_frozen
 from database.models import JarvisRepository
 from voice.text_to_speech import shutdown as shutdown_tts
 
 
-def run_gui() -> int:
+def run_gui(smoke_test: bool = False) -> int:
     """Launch the PySide6 Stark Industries HUD Application."""
+    if smoke_test:
+        os.environ.setdefault("QT_QPA_PLATFORM", "windows")
+
+    from PySide6.QtCore import Qt, QTimer
     from PySide6.QtWidgets import QApplication
     from interface.icon_generator import get_app_icon
     from interface.main_window import MainWindow
@@ -32,17 +45,27 @@ def run_gui() -> int:
     repo = JarvisRepository()
     assistant = Assistant(config=config, repo=repo)
 
-    # Start assistant background orchestrator
-    assistant.start(voice_enabled=True)
+    if not smoke_test:
+        assistant.start(voice_enabled=True)
 
     window = MainWindow(assistant=assistant, repo=repo)
+    if smoke_test:
+        window.setAttribute(Qt.WA_DontShowOnScreen, True)
     window.show()
+
+    if smoke_test:
+        def _finish_smoke():
+            for key in ("dashboard", "chat", "memory", "notes", "reminders", "system", "settings"):
+                window.switch_screen(key, animate=False)
+            window._full_exit()
+
+        QTimer.singleShot(2500, _finish_smoke)
 
     exit_code = app.exec()
 
-    # Clean shutdown on application exit
     assistant.stop()
     shutdown_tts()
+    logger.info("J.A.R.V.I.S. exited cleanly (code=%s).", exit_code)
     return exit_code
 
 
@@ -60,6 +83,7 @@ def run_cli() -> None:
     print(f"User:           {config.user_name}")
     summary = config.status_summary()
     print(f"AI Provider:    {summary['AI Provider']}")
+    print(f"Data Folder:    {summary['User Data Dir']}")
     print(f"Wake Word:      {config.wake_word_model} (Local ONNX)")
     print("=" * 60)
     print("Type any command, question, or 'exit' to quit.")
@@ -92,15 +116,27 @@ def run_cli() -> None:
 
 def main() -> None:
     """Entry point dispatcher."""
+    logger.info("Starting J.A.R.V.I.S. (frozen=%s)", is_frozen())
+
+    if "--smoke-test" in sys.argv:
+        sys.exit(run_gui(smoke_test=True))
+
     if "--cli" in sys.argv or "--terminal" in sys.argv or "--no-gui" in sys.argv:
-        run_cli()
-        return
+        if is_frozen() and sys.stdin is None:
+            logger.warning("--cli requested without attached console; launching GUI instead.")
+        else:
+            run_cli()
+            return
 
     try:
         sys.exit(run_gui())
     except Exception as e:
-        print(f"GUI launch failed or display unavailable ({e}). Falling back to Terminal mode...")
-        run_cli()
+        logger.exception("GUI launch failed: %s", e)
+        if not is_frozen() and sys.stdin is not None:
+            print(f"GUI launch failed or display unavailable ({e}). Falling back to Terminal mode...")
+            run_cli()
+        else:
+            sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -14,8 +14,9 @@ from typing import List
 from PySide6.QtCore import QBuffer, QIODevice, QPointF, Qt
 from PySide6.QtGui import QBrush, QColor, QIcon, QImage, QPainter, QPen, QPixmap, QRadialGradient
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-ICONS_DIR = PROJECT_ROOT / "assets" / "icons"
+from core.paths import get_asset_path, is_frozen
+
+ICONS_DIR = get_asset_path("icons")
 ICO_PATH = ICONS_DIR / "jarvis.ico"
 PNG_PATH = ICONS_DIR / "jarvis.png"
 
@@ -133,10 +134,13 @@ def save_multi_res_ico(ico_path: Path, png_path: Path) -> None:
 
 def get_app_icon() -> QIcon:
     """Load or generate the multi-resolution JARVIS application QIcon."""
-    if not ICO_PATH.exists() or not PNG_PATH.exists():
-        save_multi_res_ico(ICO_PATH, PNG_PATH)
-    icon = QIcon(str(ICO_PATH))
+    if not ICO_PATH.exists() and not is_frozen():
+        try:
+            save_multi_res_ico(ICO_PATH, PNG_PATH)
+        except Exception:
+            pass
+    icon = QIcon(str(ICO_PATH)) if ICO_PATH.exists() else QIcon()
     if icon.isNull():
-        for sz in (16, 32, 64, 128):
+        for sz in (16, 24, 32, 48, 64, 128):
             icon.addPixmap(QPixmap.fromImage(render_reactor_image(sz)))
     return icon

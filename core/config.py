@@ -1,20 +1,49 @@
 """
 Configuration Management Module for J.A.R.V.I.S.
 
-Loads settings from environment variables, .env file, and persisted SQLite preferences.
-Never exposes secret values in logs or representations.
+Loads settings from environment variables, .env files, and persisted SQLite preferences.
+In packaged mode, reads user credentials exclusively from %LOCALAPPDATA%\\JARVIS\\.env
+and never exposes secret values in logs or representations.
 """
 
 from dataclasses import dataclass
 import os
 from pathlib import Path
 from typing import Any, Dict, Optional
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 
-# Ensure .env is loaded from project root
+from core.logging_config import register_secrets_for_redaction
+from core.paths import (
+    ensure_user_env_template,
+    get_user_data_dir,
+    get_user_env_path,
+    is_frozen,
+)
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-ENV_PATH = PROJECT_ROOT / ".env"
-load_dotenv(dotenv_path=ENV_PATH)
+
+
+def _load_env_files() -> None:
+    """
+    Load environment files safely based on runtime mode:
+    - Development mode: loads repo .env first (if present), then %LOCALAPPDATA%\\JARVIS\\.env (non-overriding).
+    - Frozen packaged mode: creates .env.example template if missing and loads %LOCALAPPDATA%\\JARVIS\\.env.
+    """
+    ensure_user_env_template()
+    user_env = get_user_env_path()
+
+    if not is_frozen():
+        dev_env = PROJECT_ROOT / ".env"
+        if dev_env.exists():
+            load_dotenv(dotenv_path=dev_env, override=False)
+        if user_env.exists():
+            load_dotenv(dotenv_path=user_env, override=False)
+    else:
+        if user_env.exists():
+            load_dotenv(dotenv_path=user_env, override=True)
+
+
+_load_env_files()
 
 
 @dataclass
@@ -57,6 +86,8 @@ class Config:
     @classmethod
     def load(cls, apply_db: bool = True) -> "Config":
         """Load and return configuration from environment variables and optionally SQLite settings."""
+        _load_env_files()
+
         news_key = os.getenv("NEWS_API_KEY") or os.getenv("newsapi_key") or None
         if news_key:
             news_key = news_key.strip().strip('"').strip("'")
@@ -68,6 +99,8 @@ class Config:
         gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or None
         if gemini_key:
             gemini_key = gemini_key.strip().strip('"').strip("'")
+
+        register_secrets_for_redaction(news_key, groq_key, gemini_key)
 
         raw_rate = os.getenv("JARVIS_VOICE_RATE", "180")
         try:
@@ -174,6 +207,39 @@ class Config:
             "accent_intensity": str(self.accent_intensity),
         })
 
+    def save_api_keys_to_user_env(
+        self,
+        groq_key: Optional[str] = None,
+        gemini_key: Optional[str] = None,
+        news_key: Optional[str] = None,
+    ) -> Path:
+        """
+        Safely persist updated API credentials into %LOCALAPPDATA%\\JARVIS\\.env
+        without touching packaged binaries or source files.
+        """
+        env_path = get_user_env_path()
+        existing = dict(dotenv_values(env_path)) if env_path.exists() else {}
+
+        if groq_key is not None and groq_key.strip():
+            self.groq_api_key = groq_key.strip()
+            existing["GROQ_API_KEY"] = self.groq_api_key
+            os.environ["GROQ_API_KEY"] = self.groq_api_key
+
+        if gemini_key is not None and gemini_key.strip():
+            self.gemini_api_key = gemini_key.strip()
+            existing["GEMINI_API_KEY"] = self.gemini_api_key
+            os.environ["GEMINI_API_KEY"] = self.gemini_api_key
+
+        if news_key is not None and news_key.strip():
+            self.news_api_key = news_key.strip()
+            existing["NEWS_API_KEY"] = self.news_api_key
+            os.environ["NEWS_API_KEY"] = self.news_api_key
+
+        lines = [f'{k}="{v}"' for k, v in existing.items() if v is not None]
+        env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        register_secrets_for_redaction(self.news_api_key, self.groq_api_key, self.gemini_api_key)
+        return env_path
+
     def status_summary(self) -> Dict[str, str]:
         """
         Return safe status dictionary indicating whether services are configured.
@@ -188,6 +254,7 @@ class Config:
             "Voice Rate": f"{self.voice_rate} wpm",
             "Voice Volume": f"{int(self.voice_volume * 100)}%",
             "Inactivity Timeout": f"{self.inactivity_timeout}s",
+            "User Data Dir": str(get_user_data_dir()),
         }
 
     def __repr__(self) -> str:

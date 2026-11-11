@@ -1,55 +1,51 @@
 # J.A.R.V.I.S. (Just A Rather Very Intelligent System)
 
-An Iron Man-inspired futuristic Windows desktop AI assistant built in Python and PySide6, featuring a Stark Industries Arc Reactor HUD, local offline wake-word activation, multi-turn conversational intelligence (Groq & Google Gemini), asynchronous text-to-speech, and allowlisted desktop automation.
+An Iron Man-inspired futuristic Windows desktop AI assistant built in Python and PySide6, featuring a Stark Industries Arc Reactor HUD, local offline wake-word activation, multi-turn conversational intelligence (Groq & Google Gemini), asynchronous text-to-speech, SQLite persistence, and allowlisted desktop automation.
 
 ---
 
-## 🚀 Key Features
+## 🚀 Key Features & Screens
 
-* **Futuristic PySide6 HUD Interface:**
-  * **Cinematic Startup Sequence:** Powers up the Arc Reactor while running real, non-fabricated subsystem probes (config, SQLite DB, audio hardware, ONNX wake-word, and AI uplink).
-  * **Reimagined 6-Layer Arc Reactor:** Custom vector `QPainter` core with rotating shroud arcs, degree azimuth ticks, counter-rotating orbital rings, expanding pulse waves, and smooth color/speed transitions across all 8 states.
-  * **Holographic Multi-Ribbon Waveform:** Layered harmonic oscilloscope responding to live microphone RMS levels and speech synthesis while staying strictly honest about microphone availability.
-  * **7 Dedicated Command Screens:** Seamless animated navigation across `DASHBOARD`, `AI CONVERSATION`, `MEMORY`, `NOTES`, `REMINDERS`, `SYSTEM STATUS` (with live rolling CPU/RAM sparklines), and `SETTINGS`.
-  * **SQLite Local Persistence:** Stores conversation logs, long-term memory facts, notes, scheduled reminders, and user settings locally in `database/jarvis.db`.
-  * **Custom Multi-Resolution Identity:** Original Arc Reactor emblem (`assets/icons/jarvis.ico`) shared across taskbar, window chrome, and system tray.
-* **Dual AI Brain (Groq & Google Gemini):**
-  * Pluggable provider abstraction with automatic failover.
-  * High-speed voice turnarounds using Groq (Llama / GPT-OSS models) and Google Gemini 2.5 Flash.
-  * Configurable JARVIS persona: intelligent, professional, concise, subtly witty, and natural.
-  * In-memory sliding-window conversational context for natural follow-up dialogue.
-* **Local Offline Wake-Word Detection:**
-  * Powered by `openWakeWord` with pre-trained ONNX models (`hey_jarvis`).
-  * 100% offline, zero-latency CPU inference.
-  * **Zero cloud streaming during idle:** Ambient room audio is never sent to third-party servers while waiting.
-* **Continuous Multi-Turn Voice Conversations:**
-  * Say *"Hey Jarvis"* once to activate.
-  * Speak back-to-back commands and queries without repeating the wake word before every sentence.
-  * Hands-free deactivation via sleep phrases (*"Go to sleep"*, *"Stop listening"*, *"Deactivate"*) or automatic silence timeouts.
-* **Safe Desktop Automation:**
-  * Allowlisted application launching (Notepad, Calculator, File Explorer, Command Prompt, PowerShell, Settings, Task Manager).
-  * Native Windows media controls (Volume Up, Volume Down, Mute/Unmute).
-  * System telemetry (battery percentage, CPU/RAM usage, OS details).
-  * Current date and time reporting.
-  * Safe note recording in dedicated `~/JARVIS_Notes` directory.
-  * Workstation locking upon explicit request.
-  * Strictly forbids arbitrary AI shell execution, `eval`, or unsanitized script running.
-* **Asynchronous Audio Pipeline:**
-  * Persistent worker thread for Windows SAPI5 `pyttsx3` text-to-speech engine.
-  * Queued speech output that never freezes or lags the desktop GUI.
-  * Decoupled microphone access preventing audio device competition.
+### Futuristic PySide6 Command Centre
+* **Cinematic Startup Sequence:** Powers up the Arc Reactor while running real, non-fabricated subsystem probes (configuration, SQLite DB, audio hardware, ONNX wake-word, and AI uplink).
+* **Reimagined 6-Layer Arc Reactor:** Custom vector `QPainter` core with rotating shroud arcs, `0°–360°` azimuth ticks, counter-rotating orbital rings, expanding pulse waves, and smooth color/velocity interpolation across all 8 states (`IDLE`, `ACTIVATING`, `LISTENING`, `PROCESSING`, `SPEAKING`, `SLEEPING`, `ERROR`, `STOPPING`).
+* **Holographic Multi-Ribbon Waveform:** Layered harmonic oscilloscope responding to live microphone RMS levels and speech synthesis while staying strictly honest about microphone availability.
+* **Custom Multi-Resolution Identity:** Original Arc Reactor emblem (`assets/icons/jarvis.ico`) shared across the executable, taskbar, window chrome, desktop shortcut, and system tray.
+
+### 7 Dedicated HUD Screens
+1. **DASHBOARD:** 3-column command centre combining the Arc Reactor, waveform visualizer, subsystem readiness chips, quick directives, recent activity, live CPU/RAM/Battery gauges, next reminder, and compact conversation stream.
+2. **AI CONVERSATION:** Full-height chat workspace with animated user & JARVIS bubbles, typing/processing indicator, starter prompts, and dual voice/text bar.
+3. **MEMORY:** Inspect, search, add, and delete persistent long-term SQLite facts (`"Remember that..."`), plus inspect/flush the active RAM sliding-window context.
+4. **NOTES:** Two-pane searchable notes editor persisted in SQLite and synced to `%LOCALAPPDATA%\JARVIS\notes\`.
+5. **REMINDERS:** Schedule, filter, complete, and delete tasks with automatic due-time toast and voice notifications.
+6. **SYSTEM STATUS:** Rolling CPU & RAM sparklines, hardware summary, network uplink check, wake-word runtime check, and detected audio devices list.
+7. **SETTINGS:** Categorized preferences for AI provider (`auto`, `groq`, `gemini`), voice TTS rate/volume/mute, local wake-word sensitivity, inactivity timeout, startup animation, tray behavior, HUD glow intensity, and user-local API key entry.
+
+### Voice & AI Intelligence
+* **Dual AI Brain (Groq & Google Gemini):** High-speed inference using Groq (auto-selecting compatible models like `openai/gpt-oss-120b` / `openai/gpt-oss-20b`) and Google Gemini 2.5 Flash (`google-genai`) with automatic failover.
+* **Local Offline Wake-Word Detection:** Powered by `openWakeWord` with pre-trained ONNX models (`hey_jarvis_v0.1.onnx`). Zero audio leaves your machine while `IDLE`.
+* **Continuous Multi-Turn Dialogue:** Say *"Hey Jarvis"* once to activate (*"Yes, Mragank?"*), issue consecutive commands without repeating the wake phrase, and deactivate via *"Go to sleep"* or silence timeout.
+* **Safe Allowlisted Desktop Automation:** Launches verified Windows utilities (`notepad`, `calc`, `explorer`, `cmd`, `powershell`, `settings`, `taskmgr`), controls master volume, reads system telemetry, saves notes, and locks workstation on explicit demand. Never executes arbitrary AI-generated shell commands or `eval()`.
 
 ---
 
-## 📋 System Prerequisites
+## 🛠️ Technology Stack
 
-* **Operating System:** Windows 10 or Windows 11 (64-bit)
-* **Python Version:** Python 3.12 (64-bit recommended)
-* **Audio Hardware:** Working microphone and speakers / headphones
+| Layer | Technology |
+| :--- | :--- |
+| **Language** | Python 3.12 (64-bit) |
+| **Desktop GUI** | PySide6 (Qt 6.12) |
+| **AI Providers** | Groq API (`requests`) & Google Gemini (`google-genai`) |
+| **Wake-Word Engine** | `openWakeWord` + `onnxruntime` (ONNX offline inference) |
+| **Speech Recognition** | `SpeechRecognition` + `PyAudio` |
+| **Text-to-Speech** | `pyttsx3` (persistent Windows SAPI5 worker thread) |
+| **Local Storage** | `sqlite3` (Windows `%LOCALAPPDATA%\JARVIS\`) |
+| **Telemetry & Win32** | `psutil`, `pywin32`, `comtypes` |
+| **Packaging** | PyInstaller 6 (`--onedir`, `--windowed`) + Inno Setup script |
 
 ---
 
-## 🛠️ Installation & Setup
+## 💻 Development Setup (Running from Source)
 
 1. **Clone the repository:**
    ```powershell
@@ -68,71 +64,79 @@ An Iron Man-inspired futuristic Windows desktop AI assistant built in Python and
    python -m pip install -r requirements.txt
    ```
 
-4. **Configure environment credentials:**
-   Copy `.env.example` to `.env`:
-   ```powershell
-   Copy-Item .env.example .env
-   ```
-   Edit `.env` and fill in your API credentials:
+4. **Configure API keys:**
+   Copy `.env.example` to `.env` in the repo root (or configure inside Settings / `%LOCALAPPDATA%\JARVIS\.env`):
    ```env
-   # NewsAPI (https://newsapi.org/)
    NEWS_API_KEY=your_news_api_key_here
-
-   # Groq API (https://console.groq.com/)
    GROQ_API_KEY=your_groq_api_key_here
-
-   # Google Gemini API (https://aistudio.google.com/)
    GEMINI_API_KEY=your_gemini_api_key_here
-
-   # AI Provider Selection: 'auto', 'groq', or 'gemini'
    AI_PROVIDER=auto
-
-   # Assistant Identity (Optional)
    JARVIS_USER_NAME=Mragank
-   JARVIS_VOICE_RATE=180
-   JARVIS_VOICE_VOLUME=1.0
-   JARVIS_INACTIVITY_TIMEOUT=10.0
+   ```
+
+5. **Run from source:**
+   ```powershell
+   # Desktop HUD
+   .\.venv\Scripts\python.exe main.py
+
+   # Terminal Interactive Mode
+   .\.venv\Scripts\python.exe main.py --cli
    ```
 
 ---
 
-## 🎮 Launching J.A.R.V.I.S.
+## 📦 Building the Windows Application (`JARVIS.exe`)
 
-### 1. Launch Futuristic Desktop HUD (Recommended)
-```powershell
-.\.venv\Scripts\python.exe main.py
-```
-* Displays the Iron Man Arc Reactor HUD window.
-* Automatically initializes the local wake-word listener and system tray icon.
-* Click the **MIC** button or say *"Hey Jarvis"* to begin speaking.
+J.A.R.V.I.S. uses a reliable PyInstaller `--onedir` `--windowed` configuration (`JARVIS.spec`) that bundles PySide6, ONNX Runtime DLLs, the `hey_jarvis` ONNX models, SSL certificates, and the multi-resolution Arc Reactor icon — while excluding `.env` secrets, `.venv`, and test files.
 
-### 2. Launch Terminal Interactive Mode (CLI)
 ```powershell
-.\.venv\Scripts\python.exe main.py --cli
+# Build dist\JARVIS\JARVIS.exe
+cmd /c build_windows.bat
 ```
-* Runs the assistant directly in PowerShell or Command Prompt.
-* Supports keyboard text interaction and full desktop skill execution.
+
+### Creating Desktop & Start Menu Shortcuts
+Once `dist\JARVIS\JARVIS.exe` is built:
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\create_shortcuts.ps1
+```
+This creates a Windows `.lnk` shortcut on your **Desktop** and **Start Menu** pointing to `dist\JARVIS\JARVIS.exe` with the Arc Reactor icon.
+
+> **Note for Windows 11 Smart App Control:** If your system has Windows Application Control / Smart App Control enabled and blocks the unsigned `JARVIS.exe` (`WinError 4551`), either sign `dist\JARVIS\JARVIS.exe` with a trusted code-signing certificate or create the shortcut using the signed Python Software Foundation `pythonw.exe` windowed launcher:
+> ```powershell
+> powershell -ExecutionPolicy Bypass -File scripts\create_shortcuts.ps1 -UseSignedLauncher
+> ```
+
+### Optional Inno Setup Installer (`installer\JARVIS.iss`)
+If you have **Inno Setup 6** (`ISCC.exe`) installed, compile a standard Windows installer wizard:
+```powershell
+iscc installer\JARVIS.iss
+```
+The installer places the application in `%LOCALAPPDATA%\Programs\JARVIS` (or Program Files), creates shortcuts, and **preserves** user databases, notes, and `.env` credentials during upgrades and normal uninstalls.
 
 ---
 
-## 🗣️ Voice & Wake-Word Interaction
+## 🗄️ Persistent Data Storage Location
 
-1. **Wake Phrase:** Say **"Hey Jarvis"** or click the **MIC** button in the HUD.
-2. **Activation:** The Arc Reactor flashes bright cyan and JARVIS announces: *"Yes, Mragank?"*
-3. **Continuous Conversation:** Issue commands naturally:
-   * *User:* *"What is the time right now?"*
-   * *JARVIS:* *"The time is currently 09:15 PM, sir."*
-   * *User:* *"Open Calculator."*
-   * *JARVIS:* *"Opening Calculator, sir."*
-   * *User:* *"Who was Nikola Tesla?"*
-   * *JARVIS:* *"Nikola Tesla was a Serbian-American engineer and inventor known for developing alternating current electricity..."*
-4. **Deactivation:**
-   * Say *"Go to sleep"*, *"Stop listening"*, or *"Deactivate"*.
-   * Or remain silent for 10 seconds (configurable via `JARVIS_INACTIVITY_TIMEOUT`).
+Both packaged (`JARVIS.exe`) and development launches store user data safely outside the installation directory inside:
+
+```text
+%LOCALAPPDATA%\JARVIS\
+├── database\
+│   └── jarvis.db        # Conversations, memory facts, notes, reminders, settings
+├── notes\               # Exported plain-text notes
+├── logs\
+│   └── jarvis.log       # Rotating diagnostic logs (API keys automatically redacted)
+├── backups\             # Rolling SQLite backups
+├── .env                 # Optional user API credentials for packaged executable
+└── .env.example         # Template created automatically on first run
+```
+
+**First-Run Setup for Packaged `JARVIS.exe`:**  
+Launch `JARVIS.exe`, open **SETTINGS**, enter your Groq / Gemini / NewsAPI keys in the masked **Persistent Storage & API Credentials** fields (or edit `%LOCALAPPDATA%\JARVIS\.env`), and click **SAVE & APPLY SETTINGS**.
 
 ---
 
-## 💻 Supported Desktop Commands
+## 💻 Supported Desktop & Voice Commands
 
 | Category | Voice / Text Triggers | Action Taken |
 | :--- | :--- | :--- |
@@ -143,46 +147,38 @@ An Iron Man-inspired futuristic Windows desktop AI assistant built in Python and
 | **Telemetry** | `system status`, `system info`, `cpu load`, `battery status` | Reads real-time hardware telemetry via `psutil`. |
 | **Date & Time** | `what time is it`, `today's date`, `current time` | Reports formatted system date and clock. |
 | **Folders** | `open downloads`, `open documents`, `open notes folder` | Opens verified user folder locations. |
-| **Notes** | `take a note <content>`, `create a note: <content>` | Saves formatted text file in `~/JARVIS_Notes/`. |
+| **Notes & Memory** | `take a note <content>`, `remember that <fact>` | Saves notes and persistent long-term memory facts. |
+| **Window Control** | `minimize jarvis`, `maximize jarvis`, `hide jarvis`, `show jarvis` | Controls HUD visibility. |
 | **Workstation** | `lock pc`, `lock workstation`, `lock my screen` | Locks current Windows user session via `user32.dll`. |
 | **News** | `news`, `headlines` | Fetches top business news headlines via NewsAPI. |
-| **AI Brain** | Any general question, calculation, reasoning, or coding query | Dispatches to Groq / Gemini with sliding context. |
-
----
-
-## 🛡️ Privacy & Safety Guardrails
-
-* **Zero Idle Cloud Streaming:** Wake-word detection runs locally using `openWakeWord` ONNX models. No audio leaves your computer during idle standby.
-* **No Arbitrary Shell Execution:** The AI brain is strictly decoupled from system command execution. JARVIS never passes raw AI responses to `eval()`, `exec()`, or `subprocess(shell=True)`.
-* **Allowlist Enforcement:** Application launching is restricted to verified Windows utilities in `ALLOWED_APPS`.
-* **Secret Protection:** API keys in `.env` are masked and never printed to console logs, GUI panels, or serialized representations. `.env` and `.venv/` are strictly ignored in `.gitignore`.
-* **Isolated Threading:** Background audio capture and AI network requests run on dedicated worker threads, ensuring the desktop GUI stays fluid at 60 FPS.
+| **AI Brain** | Any general question, calculation, reasoning, or coding query | Dispatches to Groq / Gemini with context & memory. |
 
 ---
 
 ## 🧪 Running Automated Tests
 
-Run the full 26-test automated suite (no physical microphone or live API keys required; external services are mocked):
+Run the full automated suite (no physical microphone or live API keys required; external services and destructive actions are mocked):
 
 ```powershell
-.\.venv\Scripts\python.exe -m unittest discover tests
+.\.venv\Scripts\python.exe -m unittest discover -v tests
 ```
 
-To run individual test modules:
-```powershell
-# Phase 2 Core Engine Tests
-.\.venv\Scripts\python.exe -m unittest tests/test_phase2.py
+---
 
-# Phase 3 AI, Wake-Word, Desktop & GUI Tests
-.\.venv\Scripts\python.exe -m unittest tests/test_phase3.py
+## 🔧 Troubleshooting Guide
 
-# Phase 4 Persistence, Diagnostics, Icons & HUD Screen Tests
-.\.venv\Scripts\python.exe -m unittest tests/test_phase4.py
-```
+1. **HUD shows `"MIC: UNAVAILABLE"` / `"No Default Input Device"`:**
+   * Check Windows *Settings &rarr; System &rarr; Sound &rarr; Input* and ensure a working microphone is connected and enabled as the default recording device. Text interaction in the HUD remains fully functional without a microphone.
+2. **AI Brain responds `"No AI API Keys Configured"` in packaged mode:**
+   * Open **SETTINGS &rarr; Persistent Storage & API Credentials**, enter your Groq or Gemini API key, and click **SAVE & APPLY SETTINGS** (or place keys in `%LOCALAPPDATA%\JARVIS\.env`).
+3. **Diagnostic logs for packaged app errors:**
+   * Check `%LOCALAPPDATA%\JARVIS\logs\jarvis.log`. All API keys and bearer tokens are automatically masked (`[REDACTED]`).
+4. **Wake-word sensitivity in noisy rooms:**
+   * Adjust the **Detection Threshold** slider in **SETTINGS** (`50%` default; try `35%–45%` for quieter pickup or `60%–70%` to reduce false activations).
 
 ---
 
 ## ⚠️ Known Limitations
 
-1. **Headless Audio:** On virtualized or cloud Windows environments without an active recording device, microphone calibration falls back to text mode. Physical microphone input activates automatically on standard desktop hardware.
-2. **Wake-Word Sensitivity:** Background room acoustics or fan noise can affect wake-word accuracy. You can fine-tune sensitivity in `.env` with `JARVIS_WAKE_THRESHOLD=0.4` (default: 0.5).
+1. **Physical Microphone Verification:** Continuous acoustic wake-word detection (*"Hey Jarvis"*) and live Google Web Speech transcription require a working physical Windows microphone and speaker setup.
+2. **Inno Setup Compilation:** `installer\JARVIS.iss` is ready for compilation with Inno Setup 6 (`ISCC.exe`), which must be installed separately if a standalone `.exe` setup wizard is desired alongside the portable `dist\JARVIS\` directory and shortcut script.
