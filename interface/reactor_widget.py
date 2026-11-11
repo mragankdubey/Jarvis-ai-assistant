@@ -1,170 +1,269 @@
 """
-Animated Arc Reactor Widget for J.A.R.V.I.S. PySide6 HUD.
+Reimagined 6-Layer Animated Arc Reactor Widget for J.A.R.V.I.S.
 
-Custom vector-rendered QWidget inspired by the Stark Industries Arc Reactor.
-Animates concentric rotating rings, pulsing energy cores, and state-reactive glows.
+Features concentric rotating shroud arcs, degree azimuth telemetry ticks,
+counter-rotating orbital rings, expanding energy pulse waves, Stark coil
+geometry, smooth color/speed state interpolation, and power-up support.
 """
 
 import math
-from PySide6.QtCore import QPointF, QRectF, Qt, QTimer
-from PySide6.QtGui import QBrush, QColor, QConicalGradient, QPainter, QPen, QRadialGradient
+from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Property
+from PySide6.QtGui import (
+    QBrush,
+    QColor,
+    QFont,
+    QPainter,
+    QPen,
+    QRadialGradient,
+)
 from PySide6.QtWidgets import QWidget
 from core.states import AssistantState
 
 
+def _lerp_color(c1: QColor, c2: QColor, t: float) -> QColor:
+    """Linearly interpolate between two QColors."""
+    t = max(0.0, min(1.0, t))
+    return QColor(
+        int(c1.red() + (c2.red() - c1.red()) * t),
+        int(c1.green() + (c2.green() - c1.green()) * t),
+        int(c1.blue() + (c2.blue() - c1.blue()) * t),
+        int(c1.alpha() + (c2.alpha() - c1.alpha()) * t),
+    )
+
+
 class ArcReactorWidget(QWidget):
     """
-    Renders an animated, state-reactive Arc Reactor using QPainter.
+    Signature animated Arc Reactor centerpiece responding to AssistantState,
+    real-time audio amplitude, and boot power-up progression.
     """
 
-    def __init__(self, parent=None):
+    STATE_TARGETS = {
+        AssistantState.IDLE:       (QColor(0, 200, 235), QColor(0, 95, 165), 0.75, 0.35),
+        AssistantState.ACTIVATING: (QColor(210, 252, 255), QColor(0, 229, 255), 3.4, 1.0),
+        AssistantState.LISTENING:  (QColor(0, 255, 220), QColor(0, 175, 255), 1.8, 0.90),
+        AssistantState.PROCESSING: (QColor(64, 210, 255), QColor(0, 102, 255), 3.8, 0.85),
+        AssistantState.SPEAKING:   (QColor(112, 243, 255), QColor(0, 180, 255), 2.3, 0.95),
+        AssistantState.SLEEPING:   (QColor(0, 110, 155), QColor(0, 50, 90), 0.25, 0.18),
+        AssistantState.ERROR:      (QColor(255, 46, 99), QColor(180, 30, 60), 1.4, 0.85),
+        AssistantState.STOPPING:   (QColor(0, 90, 130), QColor(0, 40, 70), 0.2, 0.15),
+    }
+
+    def __init__(self, parent=None, compact: bool = False):
         super().__init__(parent)
-        self.setMinimumSize(220, 220)
+        self.compact = compact
+        if compact:
+            self.setMinimumSize(140, 140)
+        else:
+            self.setMinimumSize(210, 210)
 
         self._state = AssistantState.IDLE
-        self._outer_angle = 0.0
-        self._inner_angle = 0.0
+        self._power_level = 1.0  # 0.0 -> 1.0 used during cinematic boot
+        self._audio_level = 0.0  # 0.0 -> 1.0 real/simulated envelope
+
+        # Animated state variables
+        self._curr_primary = QColor(0, 200, 235)
+        self._curr_secondary = QColor(0, 95, 165)
+        self._curr_speed = 0.75
+        self._curr_intensity = 0.35
+
+        self._angle_outer = 0.0
+        self._angle_mid = 0.0
+        self._angle_inner = 0.0
         self._pulse_phase = 0.0
+        self._ripple_phase = 0.0
 
-        # Animation timer (running at ~40 FPS for smooth rendering without high CPU)
         self._timer = QTimer(self)
-        self._timer.timeout.connect(self._update_animation)
-        self._timer.start(25)
+        self._timer.timeout.connect(self._tick)
+        self._timer.start(24)  # ~41 FPS smooth low-overhead animation
 
-    def set_state(self, new_state: AssistantState) -> None:
-        """Update active visual state."""
-        self._state = new_state
+    def get_power_level(self) -> float:
+        return self._power_level
+
+    def set_power_level(self, val: float) -> None:
+        self._power_level = max(0.0, min(1.0, float(val)))
         self.update()
 
-    def _update_animation(self) -> None:
-        """Advance rotational angles and pulse cycles according to state."""
-        speed_multiplier = 1.0
-        if self._state == AssistantState.PROCESSING:
-            speed_multiplier = 3.5
-        elif self._state == AssistantState.LISTENING:
-            speed_multiplier = 1.8
-        elif self._state == AssistantState.SPEAKING:
-            speed_multiplier = 2.2
-        elif self._state in (AssistantState.IDLE, AssistantState.SLEEPING):
-            speed_multiplier = 0.6
+    powerLevel = Property(float, get_power_level, set_power_level)
 
-        self._outer_angle = (self._outer_angle + 0.8 * speed_multiplier) % 360
-        self._inner_angle = (self._inner_angle - 1.2 * speed_multiplier) % 360
-        self._pulse_phase = (self._pulse_phase + 0.06 * speed_multiplier) % (2 * math.pi)
+    def set_state(self, new_state: AssistantState) -> None:
+        self._state = new_state
+
+    def set_audio_level(self, level: float) -> None:
+        # Smooth audio envelope follower
+        target = max(0.0, min(1.0, level))
+        self._audio_level = self._audio_level * 0.55 + target * 0.45
+
+    def pause_animations(self) -> None:
+        if self._timer.isActive():
+            self._timer.stop()
+
+    def resume_animations(self) -> None:
+        if not self._timer.isActive():
+            self._timer.start(24)
+
+    def _tick(self) -> None:
+        target_p, target_s, target_spd, target_int = self.STATE_TARGETS.get(
+            self._state, self.STATE_TARGETS[AssistantState.IDLE]
+        )
+
+        # Smooth transition toward target state aesthetics
+        self._curr_primary = _lerp_color(self._curr_primary, target_p, 0.14)
+        self._curr_secondary = _lerp_color(self._curr_secondary, target_s, 0.14)
+        self._curr_speed += (target_spd - self._curr_speed) * 0.12
+        self._curr_intensity += (target_int - self._curr_intensity) * 0.12
+
+        power_factor = 0.25 + 1.45 * self._power_level
+        spd = self._curr_speed * power_factor
+
+        self._angle_outer = (self._angle_outer + 0.55 * spd) % 360.0
+        self._angle_mid = (self._angle_mid - 0.95 * spd) % 360.0
+        self._angle_inner = (self._angle_inner + 1.35 * spd) % 360.0
+        self._pulse_phase = (self._pulse_phase + 0.055 * max(0.6, spd)) % (2.0 * math.pi)
+        self._ripple_phase = (self._ripple_phase + 0.022 * max(0.7, spd)) % 1.0
+
+        # Decay audio level gently when idle
+        if self._state not in (AssistantState.LISTENING, AssistantState.SPEAKING):
+            self._audio_level *= 0.88
 
         self.update()
 
     def paintEvent(self, event) -> None:
-        """Draw Arc Reactor geometry and lighting effects."""
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
-        painter.setRenderHint(QPainter.SmoothPixmapTransform)
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing, True)
+        p.setRenderHint(QPainter.SmoothPixmapTransform, True)
 
-        width = self.width()
-        height = self.height()
-        center = QPointF(width / 2.0, height / 2.0)
-        radius = min(width, height) / 2.0 - 15.0
-
-        if radius <= 10:
+        w, h = self.width(), self.height()
+        center = QPointF(w / 2.0, h / 2.0)
+        max_r = min(w, h) / 2.0 - 16.0
+        if max_r <= 20:
             return
 
-        # Determine state-based color palette
-        if self._state == AssistantState.ERROR:
-            primary_color = QColor(255, 42, 109)    # Red / Crimson alert
-            secondary_color = QColor(255, 120, 0)
-        elif self._state == AssistantState.PROCESSING:
-            primary_color = QColor(0, 229, 255)    # Electric Cyan
-            secondary_color = QColor(0, 100, 255)   # Deep Blue
-        elif self._state == AssistantState.LISTENING:
-            primary_color = QColor(0, 255, 200)    # Bright Aquamarine
-            secondary_color = QColor(0, 229, 255)
-        elif self._state == AssistantState.SPEAKING:
-            primary_color = QColor(64, 196, 255)   # Light Blue energy
-            secondary_color = QColor(0, 229, 255)
-        elif self._state == AssistantState.ACTIVATING:
-            primary_color = QColor(255, 255, 255)  # Flash White
-            secondary_color = QColor(0, 229, 255)
-        else:  # IDLE / SLEEPING
-            primary_color = QColor(0, 180, 216)    # Subdued Cyan
-            secondary_color = QColor(0, 80, 120)
-
-        # Pulse amplitude
+        pwr = self._power_level
+        intensity = self._curr_intensity * pwr
+        audio_boost = self._audio_level * 0.25
         pulse = 0.5 + 0.5 * math.sin(self._pulse_phase)
 
-        # 1. Background radial glow
-        glow_grad = QRadialGradient(center, radius)
-        glow_alpha = int(40 + 45 * pulse) if self._state != AssistantState.IDLE else 25
-        glow_color = QColor(primary_color.red(), primary_color.green(), primary_color.blue(), glow_alpha)
-        glow_grad.setColorAt(0.0, glow_color)
-        glow_grad.setColorAt(0.7, QColor(secondary_color.red(), secondary_color.green(), secondary_color.blue(), int(glow_alpha / 2)))
-        glow_grad.setColorAt(1.0, QColor(0, 0, 0, 0))
-        painter.setBrush(QBrush(glow_grad))
-        painter.setPen(Qt.NoPen)
-        painter.drawEllipse(center, radius, radius)
+        prim = QColor(self._curr_primary)
+        sec = QColor(self._curr_secondary)
 
-        # 2. Outer Containment Ring
-        outer_pen = QPen(primary_color, 2.0)
-        painter.setPen(outer_pen)
-        painter.setBrush(Qt.NoBrush)
-        painter.drawEllipse(center, radius * 0.95, radius * 0.95)
+        # LAYER 1: Ambient Radial Glow Bloom
+        bloom_r = max_r * (0.98 + 0.04 * pulse + audio_boost * 0.15)
+        bloom = QRadialGradient(center, bloom_r)
+        alpha_center = int((55 + 75 * intensity + 60 * audio_boost) * pwr)
+        bloom.setColorAt(0.0, QColor(prim.red(), prim.green(), prim.blue(), min(220, alpha_center)))
+        bloom.setColorAt(0.52, QColor(sec.red(), sec.green(), sec.blue(), min(120, int(alpha_center * 0.5))))
+        bloom.setColorAt(1.0, QColor(0, 0, 0, 0))
+        p.setPen(Qt.NoPen)
+        p.setBrush(QBrush(bloom))
+        p.drawEllipse(center, bloom_r, bloom_r)
 
-        # 3. Rotating Segmented Outer Ring
-        painter.save()
-        painter.translate(center)
-        painter.rotate(self._outer_angle)
-        seg_pen = QPen(primary_color, 3.0)
-        painter.setPen(seg_pen)
-        num_segments = 12
-        for i in range(num_segments):
-            angle = (360.0 / num_segments) * i
-            rad = math.radians(angle)
-            p1 = QPointF(math.cos(rad) * radius * 0.82, math.sin(rad) * radius * 0.82)
-            p2 = QPointF(math.cos(rad) * radius * 0.93, math.sin(rad) * radius * 0.93)
-            painter.drawLine(p1, p2)
-        painter.restore()
+        # LAYER 2: Azimuth Technical Degree Scale & Cardinal Ticks
+        if not self.compact:
+            scale_r = max_r * 0.96
+            p.setPen(QPen(QColor(prim.red(), prim.green(), prim.blue(), int(45 + 50 * intensity)), 1.0))
+            p.setBrush(Qt.NoBrush)
+            p.drawEllipse(center, scale_r, scale_r)
 
-        # 4. Middle Counter-Rotating Ring
-        painter.save()
-        painter.translate(center)
-        painter.rotate(self._inner_angle)
-        mid_pen = QPen(secondary_color, 2.0)
-        painter.setPen(mid_pen)
-        painter.drawEllipse(QPointF(0, 0), radius * 0.72, radius * 0.72)
+            for deg in range(0, 360, 5):
+                is_major = (deg % 30 == 0)
+                is_mid = (deg % 15 == 0)
+                tick_len = max_r * (0.06 if is_major else (0.038 if is_mid else 0.02))
+                tick_alpha = int((145 if is_major else 65) * (0.4 + 0.6 * intensity))
+                p.setPen(QPen(QColor(prim.red(), prim.green(), prim.blue(), tick_alpha), 1.4 if is_major else 0.9))
+                rad = math.radians(deg)
+                p1 = QPointF(center.x() + math.cos(rad) * (scale_r - tick_len), center.y() + math.sin(rad) * (scale_r - tick_len))
+                p2 = QPointF(center.x() + math.cos(rad) * scale_r, center.y() + math.sin(rad) * scale_r)
+                p.drawLine(p1, p2)
 
-        # Inner ring tick marks
-        num_inner_ticks = 8
-        tick_pen = QPen(primary_color, 2.5)
-        painter.setPen(tick_pen)
-        for i in range(num_inner_ticks):
-            angle = (360.0 / num_inner_ticks) * i
-            rad = math.radians(angle)
-            p1 = QPointF(math.cos(rad) * radius * 0.58, math.sin(rad) * radius * 0.58)
-            p2 = QPointF(math.cos(rad) * radius * 0.70, math.sin(rad) * radius * 0.70)
-            painter.drawLine(p1, p2)
-        painter.restore()
+            # Subtle cardinal azimuth labels
+            p.setFont(QFont("Consolas", 7, QFont.Bold))
+            p.setPen(QColor(prim.red(), prim.green(), prim.blue(), int(110 * pwr)))
+            for deg, text in ((0, "090"), (90, "180"), (180, "270"), (270, "000")):
+                rad = math.radians(deg)
+                lx = center.x() + math.cos(rad) * (max_r * 0.85) - 12
+                ly = center.y() + math.sin(rad) * (max_r * 0.85) - 6
+                p.drawText(QRectF(lx, ly, 24, 12), Qt.AlignCenter, text)
 
-        # 5. Core Triangular Coil Emitter
-        painter.save()
-        painter.translate(center)
-        painter.rotate(-self._outer_angle * 0.5)
-        triangle_pen = QPen(primary_color, 2.0)
-        painter.setPen(triangle_pen)
-        triangle_brush = QColor(secondary_color.red(), secondary_color.green(), secondary_color.blue(), int(30 + 30 * pulse))
-        painter.setBrush(QBrush(triangle_brush))
+        # LAYER 3: Expanding Energy Ripple Wave (LISTENING / SPEAKING / ACTIVATING)
+        if self._state in (AssistantState.LISTENING, AssistantState.SPEAKING, AssistantState.ACTIVATING) and pwr > 0.6:
+            rip_r = max_r * (0.35 + 0.58 * self._ripple_phase)
+            rip_alpha = int((1.0 - self._ripple_phase) * 140)
+            p.setPen(QPen(QColor(prim.red(), prim.green(), prim.blue(), rip_alpha), 1.6))
+            p.setBrush(Qt.NoBrush)
+            p.drawEllipse(center, rip_r, rip_r)
 
-        tri_points = []
+        # LAYER 4: Outer Rotating Segmented Shroud Arcs & Coil Blocks
+        p.save()
+        p.translate(center)
+        p.rotate(self._angle_outer)
+
+        shroud_r = max_r * 0.78
+        shroud_rect = QRectF(-shroud_r, -shroud_r, shroud_r * 2, shroud_r * 2)
+        p.setPen(QPen(QColor(prim.red(), prim.green(), prim.blue(), int(190 * pwr)), 2.8, Qt.SolidLine, Qt.FlatCap))
+        for i in range(4):
+            p.drawArc(shroud_rect, (i * 90 + 10) * 16, 68 * 16)
+
+        # 12 Precision Stator Coil Bars
+        coil_pen = QPen(QColor(sec.red(), sec.green(), sec.blue(), int(170 * pwr)), max(2.2, max_r * 0.032), Qt.SolidLine, Qt.FlatCap)
+        p.setPen(coil_pen)
+        for i in range(12):
+            ang = math.radians(i * 30)
+            p1 = QPointF(math.cos(ang) * max_r * 0.62, math.sin(ang) * max_r * 0.62)
+            p2 = QPointF(math.cos(ang) * max_r * 0.73, math.sin(ang) * max_r * 0.73)
+            p.drawLine(p1, p2)
+        p.restore()
+
+        # LAYER 5: Counter-Rotating Middle Telemetry Ring + Orbital Nodes
+        p.save()
+        p.translate(center)
+        p.rotate(self._angle_mid)
+
+        mid_r = max_r * 0.56
+        mid_rect = QRectF(-mid_r, -mid_r, mid_r * 2, mid_r * 2)
+        p.setPen(QPen(QColor(180, 245, 255, int(175 * pwr)), 1.8, Qt.SolidLine, Qt.FlatCap))
+        for i in range(6):
+            p.drawArc(mid_rect, (i * 60 + 6) * 16, 44 * 16)
+
+        # Orbital lock dots
+        p.setPen(Qt.NoPen)
+        p.setBrush(QBrush(QColor(240, 252, 255, int(220 * pwr))))
         for i in range(3):
-            angle = math.radians(i * 120 - 90)
-            tri_points.append(QPointF(math.cos(angle) * radius * 0.45, math.sin(angle) * radius * 0.45))
-        painter.drawPolygon(tri_points)
-        painter.restore()
+            ang = math.radians(i * 120)
+            p.drawEllipse(QPointF(math.cos(ang) * mid_r, math.sin(ang) * mid_r), 3.0, 3.0)
+        p.restore()
 
-        # 6. Central Arc Energy Core
-        core_radius = radius * (0.22 + 0.05 * pulse)
-        core_grad = QRadialGradient(center, core_radius)
-        core_grad.setColorAt(0.0, QColor(255, 255, 255, 240))
-        core_grad.setColorAt(0.4, primary_color)
-        core_grad.setColorAt(1.0, QColor(primary_color.red(), primary_color.green(), primary_color.blue(), 20))
-        painter.setBrush(QBrush(core_grad))
-        painter.setPen(QPen(primary_color, 1.5))
-        painter.drawEllipse(center, core_radius, core_radius)
+        # LAYER 6: Inner Stark Triangular Coil & Luminous Plasma Core
+        p.save()
+        p.translate(center)
+        p.rotate(self._angle_inner * 0.45)
+
+        tri_r = max_r * (0.40 + audio_boost * 0.05)
+        tri_pts = [
+            QPointF(math.cos(math.radians(i * 120 - 90)) * tri_r, math.sin(math.radians(i * 120 - 90)) * tri_r)
+            for i in range(3)
+        ]
+        p.setPen(QPen(QColor(prim.red(), prim.green(), prim.blue(), int(225 * pwr)), 2.2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        p.setBrush(QBrush(QColor(sec.red(), sec.green(), sec.blue(), int((35 + 45 * pulse) * pwr))))
+        p.drawPolygon(tri_pts)
+
+        # Inner Hexagon Accent
+        hex_r = max_r * 0.28
+        hex_pts = [
+            QPointF(math.cos(math.radians(i * 60)) * hex_r, math.sin(math.radians(i * 60)) * hex_r)
+            for i in range(6)
+        ]
+        p.setPen(QPen(QColor(225, 250, 255, int(140 * pwr)), 1.2))
+        p.setBrush(Qt.NoBrush)
+        p.drawPolygon(hex_pts)
+        p.restore()
+
+        # Central Energy Plasma Core
+        core_r = max_r * (0.19 + 0.03 * pulse + audio_boost * 0.08) * (0.5 + 0.5 * pwr)
+        core_grad = QRadialGradient(center, core_r * 1.35)
+        core_grad.setColorAt(0.0, QColor(255, 255, 255, int(250 * pwr)))
+        core_grad.setColorAt(0.45, QColor(prim.red(), prim.green(), prim.blue(), int(235 * pwr)))
+        core_grad.setColorAt(0.85, QColor(sec.red(), sec.green(), sec.blue(), int(120 * pwr)))
+        core_grad.setColorAt(1.0, QColor(0, 0, 0, 0))
+        p.setPen(Qt.NoPen)
+        p.setBrush(QBrush(core_grad))
+        p.drawEllipse(center, core_r * 1.35, core_r * 1.35)

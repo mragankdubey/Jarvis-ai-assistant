@@ -1,37 +1,20 @@
 """
 Windows System Tray Controller for J.A.R.V.I.S. PySide6 HUD.
 
-Provides background operation, tray icon indicator, and right-click quick actions.
+Provides background operation, custom multi-resolution Arc Reactor tray icon,
+and right-click quick actions matching the Stark Industries HUD theme.
 """
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
+from PySide6.QtCore import Signal
+from PySide6.QtGui import QAction, QPixmap
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon
+from interface.icon_generator import get_app_icon, render_reactor_image
+from interface.theme import HudPalette
 
 
 def create_reactor_pixmap(size: int = 32) -> QPixmap:
-    """Dynamically generate a high-contrast Arc Reactor tray icon."""
-    pixmap = QPixmap(size, size)
-    pixmap.fill(Qt.transparent)
-
-    painter = QPainter(pixmap)
-    painter.setRenderHint(QPainter.Antialiasing)
-
-    center = size / 2.0
-    radius = (size / 2.0) - 2.0
-
-    # Cyan outer ring
-    painter.setPen(QColor(0, 229, 255))
-    painter.setBrush(QColor(10, 20, 35))
-    painter.drawEllipse(center, radius, radius)
-
-    # Inner bright core
-    painter.setPen(Qt.NoPen)
-    painter.setBrush(QColor(0, 255, 230))
-    painter.drawEllipse(center, radius * 0.45, radius * 0.45)
-
-    painter.end()
-    return pixmap
+    """Return high-contrast Arc Reactor emblem pixmap."""
+    return QPixmap.fromImage(render_reactor_image(size))
 
 
 class SystemTrayController(QSystemTrayIcon):
@@ -47,15 +30,21 @@ class SystemTrayController(QSystemTrayIcon):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setIcon(QIcon(create_reactor_pixmap(32)))
+        self.setIcon(get_app_icon())
         self.setToolTip("J.A.R.V.I.S. // Stark Industries OS")
         self._create_menu()
         self.activated.connect(self._on_tray_activated)
 
     def _create_menu(self) -> None:
         menu = QMenu()
+        menu.setStyleSheet(
+            f"QMenu {{ background-color: {HudPalette.BG_PANEL}; color: {HudPalette.TEXT_PRIMARY}; "
+            f"border: 1px solid {HudPalette.CYAN_MID}; padding: 4px; }}"
+            f"QMenu::item {{ padding: 6px 18px; border-radius: 3px; }}"
+            f"QMenu::item:selected {{ background-color: rgba(0, 229, 255, 0.2); color: {HudPalette.WHITE_PURE}; }}"
+        )
 
-        show_action = QAction("Show HUD", menu)
+        show_action = QAction("Show J.A.R.V.I.S. HUD", menu)
         show_action.triggered.connect(self.show_requested.emit)
         menu.addAction(show_action)
 
@@ -65,11 +54,11 @@ class SystemTrayController(QSystemTrayIcon):
 
         menu.addSeparator()
 
-        voice_action = QAction("Activate Voice (Wake)", menu)
+        voice_action = QAction("Activate Voice Link", menu)
         voice_action.triggered.connect(self.toggle_voice_requested.emit)
         menu.addAction(voice_action)
 
-        sleep_action = QAction("Sleep Mode", menu)
+        sleep_action = QAction("Standby / Sleep", menu)
         sleep_action.triggered.connect(self.sleep_requested.emit)
         menu.addAction(sleep_action)
 
@@ -79,9 +68,10 @@ class SystemTrayController(QSystemTrayIcon):
         exit_action.triggered.connect(self.exit_requested.emit)
         menu.addAction(exit_action)
 
+        self._menu = menu
         self.setContextMenu(menu)
 
     def _on_tray_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
-        """Toggle HUD window when tray icon is clicked."""
+        """Restore HUD window when tray icon is clicked."""
         if reason == QSystemTrayIcon.Trigger:
             self.show_requested.emit()

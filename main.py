@@ -1,34 +1,41 @@
 """
 J.A.R.V.I.S. (Just A Rather Very Intelligent System)
-Main Application Entry Point - Phase 3 (AI Brain & Futuristic PySide6 HUD)
+Main Application Entry Point - Phase 4 (Stark Industries Command Centre HUD)
 
-Launches the futuristic Stark Industries Iron Man HUD desktop interface.
-Supports fallback to terminal interactive mode when '--cli' is specified
-or in headless environments.
+Launches the futuristic Iron Man-inspired PySide6 desktop application with
+cinematic startup diagnostics, multi-screen navigation, persistent SQLite storage,
+local offline wake-word activation, and dual-provider AI intelligence.
 """
 
 import sys
 from core.assistant import Assistant
 from core.config import get_config
+from database.models import JarvisRepository
 from voice.text_to_speech import shutdown as shutdown_tts
 
 
 def run_gui() -> int:
     """Launch the PySide6 Stark Industries HUD Application."""
     from PySide6.QtWidgets import QApplication
+    from interface.icon_generator import get_app_icon
     from interface.main_window import MainWindow
 
     app = QApplication.instance()
     if app is None:
         app = QApplication(sys.argv)
 
-    config = get_config()
-    assistant = Assistant(config=config)
+    app.setApplicationName("J.A.R.V.I.S.")
+    app.setOrganizationName("Stark Industries OS")
+    app.setWindowIcon(get_app_icon())
 
-    # Start assistant background loop
+    config = get_config()
+    repo = JarvisRepository()
+    assistant = Assistant(config=config, repo=repo)
+
+    # Start assistant background orchestrator
     assistant.start(voice_enabled=True)
 
-    window = MainWindow(assistant=assistant)
+    window = MainWindow(assistant=assistant, repo=repo)
     window.show()
 
     exit_code = app.exec()
@@ -42,12 +49,13 @@ def run_gui() -> int:
 def run_cli() -> None:
     """Fallback interactive terminal mode."""
     config = get_config()
-    assistant = Assistant(config=config)
+    repo = JarvisRepository()
+    assistant = Assistant(config=config, repo=repo)
     assistant.start(voice_enabled=False)
 
     print("=" * 60)
     print("        J.A.R.V.I.S. - Just A Rather Very Intelligent System")
-    print("                    Phase 3 Terminal Mode")
+    print("                    Terminal Interactive Mode")
     print("=" * 60)
     print(f"User:           {config.user_name}")
     summary = config.status_summary()
@@ -84,12 +92,10 @@ def run_cli() -> None:
 
 def main() -> None:
     """Entry point dispatcher."""
-    # Check if CLI mode was explicitly requested
     if "--cli" in sys.argv or "--terminal" in sys.argv or "--no-gui" in sys.argv:
         run_cli()
         return
 
-    # Attempt to launch the PySide6 GUI
     try:
         sys.exit(run_gui())
     except Exception as e:

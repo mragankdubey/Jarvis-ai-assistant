@@ -16,9 +16,9 @@ from core.memory import ConversationMemory
 logger = logging.getLogger(__name__)
 
 
-def build_system_prompt(user_name: str = "Mragank") -> str:
+def build_system_prompt(user_name: str = "Mragank", facts: Optional[List[str]] = None) -> str:
     """Construct the foundational JARVIS persona system prompt."""
-    return (
+    prompt = (
         f"You are J.A.R.V.I.S. (Just A Rather Very Intelligent System), the personal AI desktop assistant "
         f"inspired by the Stark Industries AI from Iron Man. You serve your creator and user, {user_name}.\n"
         f"Key behavioral guidelines:\n"
@@ -29,6 +29,10 @@ def build_system_prompt(user_name: str = "Mragank") -> str:
         f"5. Acknowledge conversational context and answer follow-up questions accurately.\n"
         f"6. For calculations, facts, coding questions, or general queries, provide direct, authoritative answers."
     )
+    if facts:
+        fact_lines = "\n".join(f"- {f}" for f in facts[:15])
+        prompt += f"\n\nKnown context about {user_name}:\n{fact_lines}"
+    return prompt
 
 
 class AIProvider(ABC):
@@ -235,19 +239,20 @@ class AIEngine:
             return self.gemini
         return None
 
-    def ask(self, user_prompt: str) -> str:
+    def ask(self, user_prompt: str, facts: Optional[List[str]] = None) -> str:
         """
         Send user prompt to active AI provider and retain context in memory.
         
         Args:
             user_prompt: User's conversational query.
+            facts: Optional list of remembered user facts.
             
         Returns:
             AI response string.
         """
         cleaned = user_prompt.strip()
         if not cleaned:
-            return "How may I assist you, Mragank?"
+            return f"How may I assist you, {self.config.user_name}?"
 
         provider = self.active_provider
         if not provider:
@@ -256,7 +261,7 @@ class AIEngine:
                 "Neither Groq nor Gemini API keys are configured in your .env file."
             )
 
-        system_prompt = build_system_prompt(self.config.user_name)
+        system_prompt = build_system_prompt(self.config.user_name, facts=facts)
         history = self.memory.get_context()
 
         try:

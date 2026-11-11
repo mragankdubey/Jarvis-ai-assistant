@@ -209,8 +209,8 @@ class TestPhase3GUIHeadless(unittest.TestCase):
         # Message append
         panel.append_message("user", "Hello Jarvis")
         panel.append_message("assistant", "Greetings, Mragank.")
-        self.assertIn("Hello Jarvis", panel.chat_display.toHtml())
-        self.assertIn("Greetings", panel.chat_display.toHtml())
+        self.assertIn("Hello Jarvis", panel.all_text())
+        self.assertIn("Greetings", panel.all_text())
 
 
 if __name__ == "__main__":

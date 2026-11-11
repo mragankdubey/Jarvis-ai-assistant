@@ -7,12 +7,12 @@ An Iron Man-inspired futuristic Windows desktop AI assistant built in Python and
 ## 🚀 Key Features
 
 * **Futuristic PySide6 HUD Interface:**
-  * Animated vector **Arc Reactor** rendered via `QPainter` with state-reactive rotational speed, glow, and color transitions.
-  * Real-time audio oscilloscope **Waveform visualizer**.
-  * Live Windows telemetry cards (CPU load, RAM usage, clock, battery status).
-  * Direct-directive quick action strip (Notepad, Calculator, Browser, Explorer, Status, Sleep).
-  * Cybernetic conversational chat stream with distinct user and JARVIS message bubbles.
-  * Windows System Tray daemon integration with quick actions (Wake, Sleep, Show, Hide, Exit).
+  * **Cinematic Startup Sequence:** Powers up the Arc Reactor while running real, non-fabricated subsystem probes (config, SQLite DB, audio hardware, ONNX wake-word, and AI uplink).
+  * **Reimagined 6-Layer Arc Reactor:** Custom vector `QPainter` core with rotating shroud arcs, degree azimuth ticks, counter-rotating orbital rings, expanding pulse waves, and smooth color/speed transitions across all 8 states.
+  * **Holographic Multi-Ribbon Waveform:** Layered harmonic oscilloscope responding to live microphone RMS levels and speech synthesis while staying strictly honest about microphone availability.
+  * **7 Dedicated Command Screens:** Seamless animated navigation across `DASHBOARD`, `AI CONVERSATION`, `MEMORY`, `NOTES`, `REMINDERS`, `SYSTEM STATUS` (with live rolling CPU/RAM sparklines), and `SETTINGS`.
+  * **SQLite Local Persistence:** Stores conversation logs, long-term memory facts, notes, scheduled reminders, and user settings locally in `database/jarvis.db`.
+  * **Custom Multi-Resolution Identity:** Original Arc Reactor emblem (`assets/icons/jarvis.ico`) shared across taskbar, window chrome, and system tray.
 * **Dual AI Brain (Groq & Google Gemini):**
   * Pluggable provider abstraction with automatic failover.
   * High-speed voice turnarounds using Groq (Llama / GPT-OSS models) and Google Gemini 2.5 Flash.
@@ -162,7 +162,7 @@ An Iron Man-inspired futuristic Windows desktop AI assistant built in Python and
 
 ## 🧪 Running Automated Tests
 
-Run the full 18-test automated suite (no physical microphone or live API keys required; external services are mocked):
+Run the full 26-test automated suite (no physical microphone or live API keys required; external services are mocked):
 
 ```powershell
 .\.venv\Scripts\python.exe -m unittest discover tests
@@ -175,6 +175,9 @@ To run individual test modules:
 
 # Phase 3 AI, Wake-Word, Desktop & GUI Tests
 .\.venv\Scripts\python.exe -m unittest tests/test_phase3.py
+
+# Phase 4 Persistence, Diagnostics, Icons & HUD Screen Tests
+.\.venv\Scripts\python.exe -m unittest tests/test_phase4.py
 ```
 
 ---
