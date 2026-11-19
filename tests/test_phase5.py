@@ -134,6 +134,16 @@ class TestPhase5DeploymentArtifacts(unittest.TestCase):
         self.assertIn("jarvis.ico", spec_text)
         self.assertIn("console=False", spec_text)
 
+    def test_10_shortcut_script_args_safety(self):
+        root = Path(__file__).resolve().parent.parent
+        ps1_text = (root / "scripts" / "create_shortcuts.ps1").read_text(encoding="utf-8")
+        # Ensure reserved $Args is not used as a variable name causing function scope shadow
+        self.assertNotIn("$Args =", ps1_text)
+        self.assertIn("ShortcutArgs", ps1_text)
+        self.assertIn("UseSignedLauncher", ps1_text)
+        self.assertIn("pythonw.exe", ps1_text)
+        self.assertIn("main.py", ps1_text)
+
 
 if __name__ == "__main__":
     unittest.main()

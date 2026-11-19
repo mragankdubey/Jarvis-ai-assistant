@@ -11,6 +11,18 @@ import logging
 import os
 import sys
 
+# Ensure project root is in sys.path and is working directory for non-frozen launcher
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from core.paths import is_frozen
+if not is_frozen() and os.getcwd() != PROJECT_ROOT:
+    try:
+        os.chdir(PROJECT_ROOT)
+    except Exception:
+        pass
+
 from core.logging_config import setup_logging
 
 # Initialize secret-masked logging & guard None stdio in --windowed builds

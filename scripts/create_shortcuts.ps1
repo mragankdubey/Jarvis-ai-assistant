@@ -22,7 +22,7 @@ if ($UseSignedLauncher) {
         exit 1
     }
     $Target = $PythonW
-    $Args = "`"$MainPy`""
+    $ShortcutArgs = "`"$MainPy`""
     $WorkDir = $ProjectRoot
 } else {
     if (-not (Test-Path -Path $ExePath)) {
@@ -31,7 +31,7 @@ if ($UseSignedLauncher) {
     }
     $ExeFile = Get-Item $ExePath
     $Target = $ExeFile.FullName
-    $Args = ""
+    $ShortcutArgs = ""
     $WorkDir = $ExeFile.DirectoryName
     $IconPath = Join-Path $WorkDir "_internal\assets\icons\jarvis.ico"
     if (-not (Test-Path $IconPath)) {
@@ -39,28 +39,55 @@ if ($UseSignedLauncher) {
     }
 }
 
-function New-JarvisShortcut([string]$ShortcutPath) {
-    $Shortcut = $WshShell.CreateShortcut($ShortcutPath)
-    $Shortcut.TargetPath = $Target
-    if (-not [string]::IsNullOrWhiteSpace($Args)) {
-        $Shortcut.Arguments = $Args
+function New-JarvisShortcut(
+    [string]$ShortcutPath,
+    [string]$TargetExe,
+    [string]$ArgumentsString,
+    [string]$WorkingDirectory,
+    [string]$IconFilePath
+) {
+    $ParentDir = Split-Path -Parent $ShortcutPath
+    if (-not [string]::IsNullOrWhiteSpace($ParentDir) -and -not (Test-Path $ParentDir)) {
+        New-Item -ItemType Directory -Path $ParentDir -Force | Out-Null
     }
-    $Shortcut.WorkingDirectory = $WorkDir
-    $Shortcut.IconLocation = "$IconPath,0"
+    $Shortcut = $WshShell.CreateShortcut($ShortcutPath)
+    $Shortcut.TargetPath = $TargetExe
+    if (-not [string]::IsNullOrWhiteSpace($ArgumentsString)) {
+        $Shortcut.Arguments = $ArgumentsString
+    } else {
+        $Shortcut.Arguments = ""
+    }
+    $Shortcut.WorkingDirectory = $WorkingDirectory
+    $Shortcut.IconLocation = "$IconFilePath,0"
     $Shortcut.Description = "J.A.R.V.I.S. - Just A Rather Very Intelligent System"
     $Shortcut.Save()
 }
 
-# 1. Desktop Shortcut
-$DesktopDir = [Environment]::GetFolderPath("Desktop")
-$DesktopShortcutPath = Join-Path $DesktopDir "J.A.R.V.I.S..lnk"
-New-JarvisShortcut $DesktopShortcutPath
-Write-Output "Created Desktop shortcut: $DesktopShortcutPath"
+# 1. Desktop Shortcuts (supports OneDrive Desktop and UserProfile Desktop)
+$DesktopDirs = @()
+$SystemDesktop = [Environment]::GetFolderPath("Desktop")
+if (-not [string]::IsNullOrWhiteSpace($SystemDesktop) -and (Test-Path $SystemDesktop)) {
+    $DesktopDirs += $SystemDesktop
+}
+if ($env:USERPROFILE) {
+    $ProfileDesktop = Join-Path $env:USERPROFILE "Desktop"
+    if ((Test-Path $ProfileDesktop) -and ($DesktopDirs -notcontains $ProfileDesktop)) {
+        $DesktopDirs += $ProfileDesktop
+    }
+}
+
+foreach ($d in $DesktopDirs) {
+    $DesktopShortcutPath = Join-Path $d "J.A.R.V.I.S..lnk"
+    New-JarvisShortcut $DesktopShortcutPath $Target $ShortcutArgs $WorkDir $IconPath
+    Write-Output "Created Desktop shortcut: $DesktopShortcutPath"
+}
 
 # 2. Optional Start Menu Shortcut
 if ($IncludeStartMenu) {
     $StartMenuDir = [Environment]::GetFolderPath("Programs")
-    $StartShortcutPath = Join-Path $StartMenuDir "J.A.R.V.I.S..lnk"
-    New-JarvisShortcut $StartShortcutPath
-    Write-Output "Created Start Menu shortcut: $StartShortcutPath"
+    if (-not [string]::IsNullOrWhiteSpace($StartMenuDir)) {
+        $StartShortcutPath = Join-Path $StartMenuDir "J.A.R.V.I.S..lnk"
+        New-JarvisShortcut $StartShortcutPath $Target $ShortcutArgs $WorkDir $IconPath
+        Write-Output "Created Start Menu shortcut: $StartShortcutPath"
+    }
 }

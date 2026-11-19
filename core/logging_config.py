@@ -77,8 +77,33 @@ _secret_filter = SecretMaskingFilter()
 _configured = False
 
 
+def _unhandled_exception_handler(exc_type, exc_value, exc_traceback):
+    """Capture unhandled fatal exceptions to jarvis.log and crash.log."""
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+
+    logger = logging.getLogger("CRASH")
+    logger.critical("Unhandled fatal exception occurred:", exc_info=(exc_type, exc_value, exc_traceback))
+
+    try:
+        import datetime
+        import traceback
+        crash_log = get_logs_dir() / "crash.log"
+        with open(str(crash_log), "a", encoding="utf-8") as f:
+            f.write(f"\n--- FATAL CRASH: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---\n")
+            traceback.print_exception(exc_type, exc_value, exc_traceback, file=f)
+    except Exception:
+        pass
+
+
+def install_exception_hook() -> None:
+    """Ensure any unhandled exception is logged to file rather than silently dropped."""
+    sys.excepthook = _unhandled_exception_handler
+
+
 def ensure_stdio_safe() -> None:
-    """Prevent NoneType stream crashes in PyInstaller --windowed builds."""
+    """Prevent NoneType stream crashes in PyInstaller --windowed builds and pythonw."""
     if sys.stdout is None:
         sys.stdout = _NullSafeStream()  # type: ignore[assignment]
     if sys.stderr is None:
@@ -86,9 +111,10 @@ def ensure_stdio_safe() -> None:
 
 
 def setup_logging(level: int = logging.INFO) -> logging.Logger:
-    """Configure root logger with secret masking and rotating log file."""
+    """Configure root logger with secret masking, rotating log file, and crash hook."""
     global _configured
     ensure_stdio_safe()
+    install_exception_hook()
 
     root = logging.getLogger()
     if _configured:
